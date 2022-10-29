@@ -29,4 +29,16 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>Core/Src/UC1609.c</name>
+			<type>1</type>
+			<locationURI>WORKSPACE_LOC/UC1609/UC1609.c</locationURI>
+		</link>
+		<link>
+			<name>Core/Src/myFont.c</name>
+			<type>1</type>
+			<locationURI>WORKSPACE_LOC/fonts/myFont.c</locationURI>
+		</link>
+	</linkedResources>
 </projectDescription>
