@@ -58,7 +58,7 @@ char string6[24];
 char string7[24];
 char string8[24];
 
-volatile uint16_t adc[6] = { 0, };
+volatile uint16_t adc[7] = { 0, };
 
 int pwm = 0;
 int a, b, c, d;
@@ -73,6 +73,9 @@ int cp;
 int dp;
 
 int hallSensor = 0;
+
+float voltage;
+float current;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -92,6 +95,7 @@ static void MX_TIM2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 int getPwm(int period, int tick) {
+	if (revMeas==0) return pwm;
 	ap = (period * a) / 100;
 	bp = (period - ap) * b / 100;
 	cp = ((period - ap - bp) * c) / 100;
@@ -194,7 +198,7 @@ int main(void)
 			(uint32_t) &adc,
 			LL_DMA_DIRECTION_PERIPH_TO_MEMORY);
 
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, 6);
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, 7);
 	LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_1);
 	LL_DMA_EnableIT_TE(DMA1, LL_DMA_CHANNEL_1);
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
@@ -247,6 +251,8 @@ int main(void)
 				63 - 63 * pwm / 100);
 		UC1609_DrawLine(140 - dx - bx, 63 - 63 * pwm / 100, 140 - bx, 63);
 
+		voltage = 3.0f * 1479.0 * 100 / 31.3 / (float) adc[6];
+		current = adc[5]*voltage/4096.0;
 		sprintf(string1, "Ax:%d", ap);
 		sprintf(string2, "Bx:%d", bp);
 		sprintf(string3, "Cx:%d", cp);
@@ -254,6 +260,7 @@ int main(void)
 		sprintf(string5, "PWM:%d", pwm);
 		sprintf(string6, "R:%d", revMeas);
 		sprintf(string7, "Q:%d", period);
+		sprintf(string8, "I:%d", (int)(current*100));
 
 		UC1609_SetPos(24, 0);
 		UC1609_PutString(string1);
@@ -390,7 +397,7 @@ static void MX_ADC1_Init(void)
   ADC_CommonInitStruct.Multimode = LL_ADC_MULTI_INDEPENDENT;
   LL_ADC_CommonInit(__LL_ADC_COMMON_INSTANCE(ADC1), &ADC_CommonInitStruct);
   ADC_REG_InitStruct.TriggerSource = LL_ADC_REG_TRIG_SOFTWARE;
-  ADC_REG_InitStruct.SequencerLength = LL_ADC_REG_SEQ_SCAN_ENABLE_6RANKS;
+  ADC_REG_InitStruct.SequencerLength = LL_ADC_REG_SEQ_SCAN_ENABLE_7RANKS;
   ADC_REG_InitStruct.SequencerDiscont = LL_ADC_REG_SEQ_DISCONT_DISABLE;
   ADC_REG_InitStruct.ContinuousMode = LL_ADC_REG_CONV_CONTINUOUS;
   ADC_REG_InitStruct.DMATransfer = LL_ADC_REG_DMA_TRANSFER_UNLIMITED;
@@ -419,6 +426,11 @@ static void MX_ADC1_Init(void)
   */
   LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_6, LL_ADC_CHANNEL_6);
   LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_6, LL_ADC_SAMPLINGTIME_239CYCLES_5);
+  /** Configure Regular Channel
+  */
+  LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_7, LL_ADC_CHANNEL_VREFINT);
+  LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_VREFINT, LL_ADC_SAMPLINGTIME_239CYCLES_5);
+  LL_ADC_SetCommonPathInternalCh(__LL_ADC_COMMON_INSTANCE(ADC1), LL_ADC_PATH_INTERNAL_VREFINT);
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
