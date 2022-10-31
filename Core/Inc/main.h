@@ -46,6 +46,7 @@ extern "C" {
 #include <string.h>
 #include "stdio.h"
 #include <math.h>
+#include "kalman.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

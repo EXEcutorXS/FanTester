@@ -36,6 +36,11 @@
 			<locationURI>WORKSPACE_LOC/UC1609/UC1609.c</locationURI>
 		</link>
 		<link>
+			<name>Core/Src/kalman.c</name>
+			<type>1</type>
+			<locationURI>WORKSPACE_LOC/Kalman/kalman.c</locationURI>
+		</link>
+		<link>
 			<name>Core/Src/myFont.c</name>
 			<type>1</type>
 			<locationURI>WORKSPACE_LOC/fonts/myFont.c</locationURI>
