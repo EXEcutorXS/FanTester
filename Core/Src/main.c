@@ -65,10 +65,8 @@ int pwm = 0;
 int a, b, c, d;
 int revMeas;
 int tickFreq;
-int period[4] = { 25000, 25000, 25000, 25000 };
-int tick = 25000;
-
-int currentPeriod = 0;
+int period = 25000;
+int tick = 24999;
 
 int ap;
 int bp;
@@ -82,12 +80,6 @@ float current;
 
 uint32_t lastUpdate=0;
 
-KalmanFilterTypeDef filterCurrent;
-KalmanFilterTypeDef filterRev;
-KalmanFilterTypeDef filterPeriod1;
-KalmanFilterTypeDef filterPeriod2;
-KalmanFilterTypeDef filterPeriod3;
-KalmanFilterTypeDef filterPeriod4;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -129,25 +121,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim3) {
 		if (hallSensor != HAL_GPIO_ReadPin(HALL_GPIO_Port, HALL_Pin) && tick>20) {
 			hallSensor = HAL_GPIO_ReadPin(HALL_GPIO_Port, HALL_Pin);
-			period[currentPeriod] = tick;
+			period = tick;
 			tick = 0;
 
-				revMeas = 10000 / (1 + period[0] + period[1] + period[2] + period[3]);
-			currentPeriod = currentPeriod++ > 3 ? 0 : currentPeriod;
+				revMeas = 2500 / (1 + period);
 
 		} else {
 			tick++;
 		}
 		if (tick > 25000) {
 			tick = 0;
-			period[0] = 25000;
-			period[1] = 25000;
-			period[2] = 25000;
-			period[3] = 25000;
-			revMeas = 0;
-
+			period=25000;
 		}
-		TIM1->CCR1 = getPwm(period[currentPeriod], tick);
+		TIM1->CCR1 = getPwm(period, tick);
 	}
 }
 
@@ -220,8 +206,6 @@ int main(void) {
 
 	LL_ADC_Enable(ADC1);
 
-	KalmanFilterInit(&filterCurrent, 5, 0.1);
-	KalmanFilterInit(&filterRev, 5, 0.1);
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -263,15 +247,12 @@ int main(void) {
 		int cx = ((140 - ax - bx) * c) / 100;
 		int dx = ((140 - ax - bx - cx) * d) / 100;
 
-		UC1609_DrawLine(ax, 55, ax + cx, 55 - 55 * pwm / 100);
-		UC1609_DrawLine(ax + cx, 55 - 55 * pwm / 100, 140 - bx - dx, 55 - 55 * pwm / 100);
-		UC1609_DrawLine(140 - dx - bx, 55 - 55 * pwm / 100, 140 - bx, 55);
+		UC1609_DrawLine(ax, 63, ax + cx, 63 - 63 * pwm / 100);
+		UC1609_DrawLine(ax + cx, 63 - 63 * pwm / 100, 140 - bx - dx, 63 - 63 * pwm / 100);
+		UC1609_DrawLine(140 - dx - bx, 63 - 63 * pwm / 100, 140 - bx, 63);
 
 		voltage = 3.0f * 1479.0 * 100 / 31.3 / (float) adc[6];
 		current = adc[5] * voltage / 4096.0;
-
-		KalmanFilter(&filterCurrent, current);
-		KalmanFilter(&filterRev, revMeas);
 
 		if (HAL_GetTick()-lastUpdate>500)
 		{
@@ -282,7 +263,8 @@ int main(void) {
 		sprintf(string3, "PWM:%d ", pwm);
 		sprintf(string4, "REV:%d ", revMeas);
 		sprintf(string5, "I:%d", (int)(current*100));
-		sprintf(botString, "1:%d,2:%d,3:%d,4:%d", period[0], period[1], period[2], period[3]);
+		sprintf(string6, "P:%d", period);
+		//sprintf(botString, "1:%d,2:%d,3:%d,4:%d", period[0], period[1], period[2], period[3]);
 		}
 
 		UC1609_SetPos(24, 0);
@@ -753,4 +735,5 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+
 

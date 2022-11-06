@@ -46,7 +46,8 @@ extern "C" {
 #include <string.h>
 #include "stdio.h"
 #include <math.h>
-#include "kalman.h"
+#include "Averager.h"
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
