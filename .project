@@ -31,6 +31,11 @@
 	</natures>
 	<linkedResources>
 		<link>
+			<name>Core/Src/Averager.c</name>
+			<type>1</type>
+			<locationURI>WORKSPACE_LOC/Averager/Averager.c</locationURI>
+		</link>
+		<link>
 			<name>Core/Src/UC1609.c</name>
 			<type>1</type>
 			<locationURI>WORKSPACE_LOC/UC1609/UC1609.c</locationURI>

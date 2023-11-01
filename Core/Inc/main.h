@@ -42,6 +42,8 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#define AVERAGER_ARRAY_SIZE 128
+
 #include "UC1609.h"
 #include <string.h>
 #include "stdio.h"

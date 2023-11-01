@@ -79,9 +79,12 @@ float voltage;
 float current;
 
 uint32_t lastUpdate = 0;
+uint32_t lastCurrentMeasure = 0;
 
 uint32_t lastStop = 0;
 
+Averager_t averCurrent;
+Averager_t averPeriod;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,7 +104,7 @@ static void MX_TIM2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 int getPwm(int period, int tick) {
-	if (HAL_GetTick()-lastStop<1000)
+	if (HAL_GetTick() - lastStop < 1000)
 		return pwm;
 	ap = (period * a) / 100;
 	bp = (period - ap) * b / 100;
@@ -115,14 +118,14 @@ int getPwm(int period, int tick) {
 		return pwm;
 	if (tick < (period - bp))
 		return pwm * (period - tick - bp) / dp;
-	return 0;}
+	return 0;
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 	if (htim == &htim3) {
-		uint32_t pinRead=HAL_GPIO_ReadPin(HALL_GPIO_Port, HALL_Pin);
-		if (hallSensor != pinRead
-				&& tick > 20) {
+		uint32_t pinRead = HAL_GPIO_ReadPin(HALL_GPIO_Port, HALL_Pin);
+		if (hallSensor != pinRead && tick > 20) {
 			hallSensor = pinRead;
 			period = tick;
 			tick = 0;
@@ -133,7 +136,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		if (tick > 25000) {
 			tick = 0;
 			period = 25000;
-			lastStop=HAL_GetTick();
+			lastStop = HAL_GetTick();
 		}
 		TIM1->CCR1 = getPwm(period, tick);
 	}
@@ -198,9 +201,8 @@ int main(void) {
 	LL_DMA_MDATAALIGN_HALFWORD |
 	LL_DMA_PRIORITY_HIGH);
 	LL_DMA_ConfigAddresses(DMA1,
-	LL_DMA_CHANNEL_1, LL_ADC_DMA_GetRegAddr(ADC1, LL_ADC_DMA_REG_REGULAR_DATA),
-			(uint32_t) &adc,
-			LL_DMA_DIRECTION_PERIPH_TO_MEMORY);
+	LL_DMA_CHANNEL_1, LL_ADC_DMA_GetRegAddr(ADC1, LL_ADC_DMA_REG_REGULAR_DATA), (uint32_t) &adc,
+	LL_DMA_DIRECTION_PERIPH_TO_MEMORY);
 
 	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, 7);
 	LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_1);
@@ -251,12 +253,16 @@ int main(void) {
 		int dx = ((140 - ax - bx - cx) * d) / 100;
 
 		UC1609_DrawLine(ax, 63, ax + cx, 63 - 63 * pwm / 100);
-		UC1609_DrawLine(ax + cx, 63 - 63 * pwm / 100, 140 - bx - dx,
-				63 - 63 * pwm / 100);
+		UC1609_DrawLine(ax + cx, 63 - 63 * pwm / 100, 140 - bx - dx, 63 - 63 * pwm / 100);
 		UC1609_DrawLine(140 - dx - bx, 63 - 63 * pwm / 100, 140 - bx, 63);
 
 		voltage = 3.0f * 1479.0 * 100 / 31.3 / (float) adc[6];
-		current = adc[5] * voltage / 4096.0;
+		//current = adc[5] * voltage / 4096.0;
+		if (HAL_GetTick()- lastCurrentMeasure>100)
+		{
+			lastCurrentMeasure=HAL_GetTick();
+			AveragerAddValue(&averCurrent, adc[5]);
+		}
 
 		if (HAL_GetTick() - lastUpdate > 500) {
 			lastUpdate = HAL_GetTick();
@@ -265,7 +271,7 @@ int main(void) {
 			sprintf(string2, "%d %d", c, d);
 			sprintf(string3, "PWM:%d ", pwm);
 			sprintf(string4, "REV:%d ", revMeas);
-			sprintf(string5, "I:%d", (int) (current * 100));
+			sprintf(string5, "I:%d", averCurrent.average);
 			sprintf(string6, "P:%d", period);
 			//sprintf(botString, "1:%d,2:%d,3:%d,4:%d", period[0], period[1], period[2], period[3]);
 		}
@@ -323,8 +329,7 @@ void SystemClock_Config(void) {
 	}
 	/** Initializes the CPU, AHB and APB buses clocks
 	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
@@ -369,8 +374,7 @@ static void MX_ADC1_Init(void) {
 	 PA4   ------> ADC1_IN4
 	 PA6   ------> ADC1_IN6
 	 */
-	GPIO_InitStruct.Pin = LL_GPIO_PIN_0 | LL_GPIO_PIN_1 | LL_GPIO_PIN_2
-			| LL_GPIO_PIN_3 | LL_GPIO_PIN_4 | LL_GPIO_PIN_6;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_0 | LL_GPIO_PIN_1 | LL_GPIO_PIN_2 | LL_GPIO_PIN_3 | LL_GPIO_PIN_4 | LL_GPIO_PIN_6;
 	GPIO_InitStruct.Mode = LL_GPIO_MODE_ANALOG;
 	LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -378,10 +382,10 @@ static void MX_ADC1_Init(void) {
 
 	/* ADC1 Init */
 	LL_DMA_SetDataTransferDirection(DMA1, LL_DMA_CHANNEL_1,
-			LL_DMA_DIRECTION_PERIPH_TO_MEMORY);
+	LL_DMA_DIRECTION_PERIPH_TO_MEMORY);
 
 	LL_DMA_SetChannelPriorityLevel(DMA1, LL_DMA_CHANNEL_1,
-			LL_DMA_PRIORITY_HIGH);
+	LL_DMA_PRIORITY_HIGH);
 
 	LL_DMA_SetMode(DMA1, LL_DMA_CHANNEL_1, LL_DMA_MODE_CIRCULAR);
 
@@ -413,40 +417,40 @@ static void MX_ADC1_Init(void) {
 	 */
 	LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_1, LL_ADC_CHANNEL_0);
 	LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_0,
-			LL_ADC_SAMPLINGTIME_239CYCLES_5);
+	LL_ADC_SAMPLINGTIME_239CYCLES_5);
 	/** Configure Regular Channel
 	 */
 	LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_2, LL_ADC_CHANNEL_1);
 	LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_1,
-			LL_ADC_SAMPLINGTIME_239CYCLES_5);
+	LL_ADC_SAMPLINGTIME_239CYCLES_5);
 	/** Configure Regular Channel
 	 */
 	LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_3, LL_ADC_CHANNEL_2);
 	LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_2,
-			LL_ADC_SAMPLINGTIME_239CYCLES_5);
+	LL_ADC_SAMPLINGTIME_239CYCLES_5);
 	/** Configure Regular Channel
 	 */
 	LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_4, LL_ADC_CHANNEL_3);
 	LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_3,
-			LL_ADC_SAMPLINGTIME_239CYCLES_5);
+	LL_ADC_SAMPLINGTIME_239CYCLES_5);
 	/** Configure Regular Channel
 	 */
 	LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_5, LL_ADC_CHANNEL_4);
 	LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_4,
-			LL_ADC_SAMPLINGTIME_239CYCLES_5);
+	LL_ADC_SAMPLINGTIME_239CYCLES_5);
 	/** Configure Regular Channel
 	 */
 	LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_6, LL_ADC_CHANNEL_6);
 	LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_6,
-			LL_ADC_SAMPLINGTIME_239CYCLES_5);
+	LL_ADC_SAMPLINGTIME_239CYCLES_5);
 	/** Configure Regular Channel
 	 */
 	LL_ADC_REG_SetSequencerRanks(ADC1, LL_ADC_REG_RANK_7,
-			LL_ADC_CHANNEL_VREFINT);
+	LL_ADC_CHANNEL_VREFINT);
 	LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_VREFINT,
-			LL_ADC_SAMPLINGTIME_239CYCLES_5);
+	LL_ADC_SAMPLINGTIME_239CYCLES_5);
 	LL_ADC_SetCommonPathInternalCh(__LL_ADC_COMMON_INSTANCE(ADC1),
-			LL_ADC_PATH_INTERNAL_VREFINT);
+	LL_ADC_PATH_INTERNAL_VREFINT);
 	/* USER CODE BEGIN ADC1_Init 2 */
 
 	/* USER CODE END ADC1_Init 2 */
@@ -519,8 +523,7 @@ static void MX_TIM1_Init(void) {
 	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
 	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig)
-			!= HAL_OK) {
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK) {
 		Error_Handler();
 	}
 	sConfigOC.OCMode = TIM_OCMODE_PWM1;
@@ -530,8 +533,7 @@ static void MX_TIM1_Init(void) {
 	sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
 	sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
 	sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
-	if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1)
-			!= HAL_OK) {
+	if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
 		Error_Handler();
 	}
 	sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
@@ -541,8 +543,7 @@ static void MX_TIM1_Init(void) {
 	sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
 	sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
 	sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
-	if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig)
-			!= HAL_OK) {
+	if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK) {
 		Error_Handler();
 	}
 	/* USER CODE BEGIN TIM1_Init 2 */
@@ -589,8 +590,7 @@ static void MX_TIM2_Init(void) {
 	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
 	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig)
-			!= HAL_OK) {
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK) {
 		Error_Handler();
 	}
 	/* USER CODE BEGIN TIM2_Init 2 */
@@ -631,8 +631,7 @@ static void MX_TIM3_Init(void) {
 	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
 	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig)
-			!= HAL_OK) {
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK) {
 		Error_Handler();
 	}
 	/* USER CODE BEGIN TIM3_Init 2 */
@@ -683,8 +682,7 @@ static void MX_DMA_Init(void) {
 
 	/* DMA interrupt init */
 	/* DMA1_Channel1_IRQn interrupt configuration */
-	NVIC_SetPriority(DMA1_Channel1_IRQn,
-			NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
+	NVIC_SetPriority(DMA1_Channel1_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
 	NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
@@ -703,8 +701,7 @@ static void MX_GPIO_Init(void) {
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOB, LCD_RESET_Pin | LCD_CS_Pin | LCD_DC_Pin,
-			GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, LCD_RESET_Pin | LCD_CS_Pin | LCD_DC_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pins : HALL_Pin ENC_BUT_Pin */
 	GPIO_InitStruct.Pin = HALL_Pin | ENC_BUT_Pin;
